@@ -54,6 +54,8 @@ private slots:
 
     void movePreviewWidget(int x, int seconds);
 
+    void setPlaybackRate(float speed);
+
     void on_pbSpeedDown_clicked();
 
     void on_pbSpeedUp_clicked();
@@ -69,7 +71,7 @@ private:
     QMediaPlayer* ghostPlayer = nullptr;
     QVideoSink* ghostSink = nullptr;
     QMap<int, QImage> frames;
-    int counter;
+    int counter = 0;
 
     QMediaPlayer* player;
     QAudioOutput* audioController;
@@ -77,5 +79,6 @@ private:
     qint64 mDuration;
     bool isPaused = false;
     bool isMuted = false;
+    bool isVideoSwitching = false; //flag for opening new video
 };
 #endif // MAINWINDOW_H

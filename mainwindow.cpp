@@ -26,7 +26,7 @@ MainWindow::MainWindow(QWidget *parent)
     timeLabel = new QLabel(previewContainer);
     timeLabel->setFixedSize(40,20);
     timeLabel->setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
-    timeLabel->setStyleSheet("QLabel { background-color: yellow; color: black; border: 1px solid #ff6f00; padding: 4px; border-radius: 4px; font-weight: bold; }");
+    timeLabel->setStyleSheet("QLabel { background-color: #EDEDED; color: black; border: 1px solid black; padding: 4px; border-radius: 4px; font-weight: bold; }");
     timeLabel->setAttribute(Qt::WA_ShowWithoutActivating);
     timeLabel->setAlignment(Qt::AlignCenter);
     timeLabel->move(170/2 - timeLabel->width()/2, 105);
@@ -105,6 +105,9 @@ void MainWindow::StoreFrames(QString file){
     if(ghostPlayer) ghostPlayer->deleteLater();
     if(ghostSink) ghostSink->deleteLater();
 
+    counter = 0;
+    frames.clear();
+
     ghostPlayer = new QMediaPlayer(this);
     ghostSink = new QVideoSink(this);
 
@@ -112,17 +115,15 @@ void MainWindow::StoreFrames(QString file){
     ghostPlayer->setAudioOutput(nullptr);
     ghostPlayer->setSource(QUrl::fromLocalFile(file));
 
-    counter = 0;
-    frames.clear();
-
-    connect(ghostSink, &QVideoSink::videoFrameChanged, this, &MainWindow::takeFrame);
     ghostPlayer->play();
     ghostPlayer->pause();
     ghostPlayer->setPosition(0);
+
+    connect(ghostSink, &QVideoSink::videoFrameChanged, this, &MainWindow::takeFrame);
 }
 
 void MainWindow::takeFrame(const QVideoFrame &frame){
-    if(!frame.isValid()) return;
+    if(!frame.isValid() || isVideoSwitching) return;
 
     QImage fr = frame.toImage().scaled(160, 90, Qt::KeepAspectRatio, Qt::SmoothTransformation);;
     frames.insert(counter, fr);
@@ -144,6 +145,24 @@ void MainWindow::takeFrame(const QVideoFrame &frame){
         ghostPlayer = nullptr;
         ghostSink = nullptr;
     }
+}
+
+void MainWindow::on_actionOpen_triggered(){
+    isVideoSwitching = true;
+
+    QString FileName = QFileDialog::getOpenFileName(this, "Select video");
+    if (FileName.isEmpty()) return;
+    StoreFrames(FileName);
+
+    player->setSource(QUrl::fromLocalFile(FileName));
+    audioController->setVolume(0.3);
+    player->play();
+    ui->pbPause->setIcon(style()->standardIcon(QStyle::SP_MediaPause));
+    // int hour = player->duration() / 3600;
+    // int minutes = (player->duration() / 60) % 60;
+    // int seconds = player->duration() % 60;
+    // ui->LabelTotalTime->setText(QString::number(hour) + ":" + QString::number(minutes) + ":" + QString::number(seconds));
+    isVideoSwitching = false;
 }
 
 void MainWindow::on_pbPause_clicked()
@@ -180,24 +199,6 @@ void MainWindow::on_slider_sound_valueChanged(int value)
 {
     audioController->setVolume((float)value / 100);
     ui->LabelSound->setText("%" + QString::number(value));
-}
-
-void MainWindow::on_actionOpen_triggered()
-{
-    QString FileName = QFileDialog::getOpenFileName(this, "Select video");
-
-    if(!FileName.isEmpty()){
-        player->setSource(QUrl::fromLocalFile(FileName));
-        audioController->setVolume(0.3);
-        player->play();
-        ui->pbPause->setIcon(style()->standardIcon(QStyle::SP_MediaPause));
-        // int hour = player->duration() / 3600;
-        // int minutes = (player->duration() / 60) % 60;
-        // int seconds = player->duration() % 60;
-        // ui->LabelTotalTime->setText(QString::number(hour) + ":" + QString::number(minutes) + ":" + QString::number(seconds));
-
-        StoreFrames(FileName);
-    }
 }
 
 void MainWindow::movePreviewWidget(int x, int seconds){
@@ -239,6 +240,12 @@ void MainWindow::movePreviewWidget(int x, int seconds){
     //qDebug() << "pozisyon: " << previewContainer->x() << " " << previewContainer->y();
 }
 
+void MainWindow::setPlaybackRate(float speed){
+    player->setPlaybackRate(speed);
+    QString txt = "";
+    ui->LabelRate->setText("x" + QString::number(speed));
+}
+
 void MainWindow::keyPressEvent(QKeyEvent* event){
     //qDebug() << "Basılan key: " << event->key();
     if(event->key() == Qt::Key_Space || event->key() == Qt::Key_K){
@@ -272,20 +279,20 @@ void MainWindow::keyPressEvent(QKeyEvent* event){
     else if(event->key() == Qt::Key_Plus){
         if(player->playbackRate() < 8){
             playbackRate += 0.25;
-            player->setPlaybackRate(playbackRate);
+            setPlaybackRate(playbackRate);
         }
         qDebug() << "hız arttı: " << player->playbackRate();
     }
     else if(event->key() == Qt::Key_Minus){
         if(player->playbackRate() > 0.30){
             playbackRate -= 0.25;
-            player->setPlaybackRate(playbackRate);
+            setPlaybackRate(playbackRate);
         }
         qDebug() << "hız azaldı: " << player->playbackRate();
     }
     else if(event->key() == Qt::Key_R){
         playbackRate = 1.0;
-        player->setPlaybackRate(playbackRate);
+        setPlaybackRate(playbackRate);
     }
     else if(event->key() == Qt::Key_M){
         on_pbMute_clicked();
@@ -300,7 +307,7 @@ void MainWindow::on_pbSpeedDown_clicked()
 {
     if(player->playbackRate() > 0.30){
         playbackRate -= 0.25;
-        player->setPlaybackRate(playbackRate);
+        setPlaybackRate(playbackRate);
     }
 }
 
@@ -308,7 +315,7 @@ void MainWindow::on_pbSpeedUp_clicked()
 {
     if(player->playbackRate() < 8){
         playbackRate += 0.25;
-        player->setPlaybackRate(playbackRate);
+        setPlaybackRate(playbackRate);
     }
 }
 
