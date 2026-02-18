@@ -25,7 +25,8 @@ It's a basic video player that focuses on the **hover preview feature** (like Yo
 | `0` - `9` | Seek to %0 - %90 of the video (e.g. 4 -> %40) |
 
 ## 🐛 Known Bugs
-* **Frame Loading Conflict:** If a video is opened and its frames are still loading for the hover preview, and you immediately open a *new* video; the slider might display the **old video's frames** instead of the new ones, and the new frames may fail to load.
+- [x] **Frame Loading Conflict:** If a video is opened and its frames are still loading for the hover preview, and you immediately open a *new* video; the slider might display the **old video's frames** instead of the new ones, and the new frames may fail to load.
+- [ ] **Canceling an opening progress:** When a video is open, if you follow the *File -> Open* path and press cancel or close tab without opening new video, rest frames are not being loaded.
 
 ## 📝 To-Do (Planned Changes)
 ### Design
