@@ -3,6 +3,8 @@
 #include <QFileDialog>
 #include <QUrl>
 #include <QTimer>
+#include <QShortcut>
+#include <QKeySequence>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -47,8 +49,14 @@ MainWindow::MainWindow(QWidget *parent)
     ui->slider_sound->setMaximum(100);
     ui->slider_sound->setValue(30);
 
+    QShortcut *shortcutMinForward = new QShortcut(QKeySequence("Ctrl+Right"), this);
+    QShortcut *shortcutMinBackward = new QShortcut(QKeySequence("Ctrl+Left"), this);
+
+    connect(shortcutMinForward, &QShortcut::activated, this, [this](){player->setPosition(player->position() + 60000);});
+    connect(shortcutMinBackward, &QShortcut::activated, this, [this](){player->setPosition(player->position() - 60000);});
     connect(player, &QMediaPlayer::durationChanged, this, &MainWindow::durationChanged);
     connect(player, &QMediaPlayer::positionChanged, this, &MainWindow::positionChanged);
+    connect(player, &QMediaPlayer::mediaStatusChanged, this, &MainWindow::onMediaStatusChanged);
     connect(ui->slider_videoBar, &QSlider::sliderMoved, this, &MainWindow::seekVideo);
     connect(ui->slider_videoBar, &QSlider::sliderReleased, this, [this](){player->setPosition(ui->slider_videoBar->value());});
     connect(ui->slider_videoBar, &HoverSlider::onHover, this, &MainWindow::movePreviewWidget);
@@ -102,9 +110,17 @@ void MainWindow::seekVideo(int position)
 }
 
 void MainWindow::StoreFrames(QString file){
-    if(ghostPlayer) ghostPlayer->deleteLater();
-    if(ghostSink) ghostSink->deleteLater();
+    if(ghostSink){
+        disconnect(ghostSink, &QVideoSink::videoFrameChanged, this, &MainWindow::takeFrame);
+        ghostSink->deleteLater();
+    }
+    if(ghostPlayer) {
+        ghostPlayer->stop();
+        ghostPlayer->deleteLater();
+    }
 
+    ghostSink = nullptr;
+    ghostPlayer = nullptr;
     counter = 0;
     frames.clear();
 
@@ -115,17 +131,18 @@ void MainWindow::StoreFrames(QString file){
     ghostPlayer->setAudioOutput(nullptr);
     ghostPlayer->setSource(QUrl::fromLocalFile(file));
 
+    connect(ghostSink, &QVideoSink::videoFrameChanged, this, &MainWindow::takeFrame);
+
     ghostPlayer->play();
     ghostPlayer->pause();
     ghostPlayer->setPosition(0);
-
-    connect(ghostSink, &QVideoSink::videoFrameChanged, this, &MainWindow::takeFrame);
 }
 
 void MainWindow::takeFrame(const QVideoFrame &frame){
+    if (sender() != ghostSink) return;
     if(!frame.isValid() || isVideoSwitching) return;
 
-    QImage fr = frame.toImage().scaled(160, 90, Qt::KeepAspectRatio, Qt::SmoothTransformation);;
+    QImage fr = frame.toImage().scaled(160, 90, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     frames.insert(counter, fr);
     // qDebug() << "Frame tamam. Time: " << counter;
     counter += 5000;
@@ -148,21 +165,30 @@ void MainWindow::takeFrame(const QVideoFrame &frame){
 }
 
 void MainWindow::on_actionOpen_triggered(){
-    isVideoSwitching = true;
-
     QString FileName = QFileDialog::getOpenFileName(this, "Select video");
-    if (FileName.isEmpty()) return;
+    if (FileName.isEmpty()) {
+        return;
+    }
+    isVideoSwitching = true;
+    previewContainer->hide();
+    player->stop();
+    frames.clear();
+    counter = 0;
     StoreFrames(FileName);
 
     player->setSource(QUrl::fromLocalFile(FileName));
-    audioController->setVolume(0.3);
     player->play();
     ui->pbPause->setIcon(style()->standardIcon(QStyle::SP_MediaPause));
-    // int hour = player->duration() / 3600;
-    // int minutes = (player->duration() / 60) % 60;
-    // int seconds = player->duration() % 60;
-    // ui->LabelTotalTime->setText(QString::number(hour) + ":" + QString::number(minutes) + ":" + QString::number(seconds));
-    isVideoSwitching = false;
+}
+
+void MainWindow::onMediaStatusChanged(QMediaPlayer::MediaStatus status){
+    if(status == QMediaPlayer::LoadedMedia || status == QMediaPlayer::BufferedMedia){
+        isVideoSwitching = false;
+        // int hour = player->duration() / 3600;
+        // int minutes = (player->duration() / 60) % 60;
+        // int seconds = player->duration() % 60;
+        // ui->LabelTotalTime->setText(QString::number(hour) + ":" + QString::number(minutes) + ":" + QString::number(seconds));
+    }
 }
 
 void MainWindow::on_pbPause_clicked()
@@ -202,6 +228,10 @@ void MainWindow::on_slider_sound_valueChanged(int value)
 }
 
 void MainWindow::movePreviewWidget(int x, int seconds){
+    if(isVideoSwitching) {
+        previewContainer->hide();
+        return;
+    }
     QString time;
     if(seconds < 3600)
         time = QTime(0, 0).addSecs(seconds).toString("mm:ss");

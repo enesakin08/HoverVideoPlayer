@@ -60,6 +60,8 @@ private slots:
 
     void on_pbSpeedUp_clicked();
 
+    void onMediaStatusChanged(QMediaPlayer::MediaStatus status);
+
 private:
     Ui::MainWindow *ui;
     QWidget* previewContainer = nullptr;
