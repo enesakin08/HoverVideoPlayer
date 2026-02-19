@@ -34,4 +34,6 @@ It's a basic video player that focuses on the **hover preview feature** (like Yo
 - [ ] Fix the toolbar position (currently too high).
 
 ### Features
-- [ ] Add `Ctrl + O` shortcut to open files.
+- [x] Add `Ctrl + O` shortcut to open files.
+- [ ] If unloaded frame is hovered, load automatically when it is loaded.
+- [ ] Give priority to hovered time. Do not wait loading all video to see the end of video. 
