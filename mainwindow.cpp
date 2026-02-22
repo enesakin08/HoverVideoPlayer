@@ -60,7 +60,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->slider_videoBar, &QSlider::sliderMoved, this, &MainWindow::seekVideo);
     connect(ui->slider_videoBar, &QSlider::sliderReleased, this, [this](){player->setPosition(ui->slider_videoBar->value());});
     connect(ui->slider_videoBar, &HoverSlider::onHover, this, &MainWindow::movePreviewWidget);
-    connect(ui->slider_videoBar, &HoverSlider::onLeave, previewContainer, &QLabel::hide);
+    connect(ui->slider_videoBar, &HoverSlider::onLeave, this, [this](){
+        previewContainer->hide();
+        currentHoverTarget = -1;
+    });
 
     this->setFocusPolicy(Qt::StrongFocus);
 
@@ -121,6 +124,7 @@ void MainWindow::StoreFrames(QString file){
 
     ghostSink = nullptr;
     ghostPlayer = nullptr;
+    isPriorityFetching = false;
     counter = 0;
     frames.clear();
 
@@ -143,17 +147,56 @@ void MainWindow::takeFrame(const QVideoFrame &frame){
     if(!frame.isValid() || isVideoSwitching) return;
 
     QImage fr = frame.toImage().scaled(160, 90, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+
+    if(isPriorityFetching){
+        qint64 currentPos = ghostPlayer->position();
+        qint64 key = (currentPos / 5000) * 5000;
+
+        frames.insert(key, fr);
+
+        if(currentHoverTarget == key || abs(currentHoverTarget - key) < 2000){
+            frameLabel->setPixmap(QPixmap::fromImage(fr));
+        }
+        isPriorityFetching = false;
+
+        counter = key + 5000;
+        QTimer::singleShot(0, this, [this](){ if(ghostPlayer) ghostPlayer->setPosition(counter); });
+        return;
+    }
+
     frames.insert(counter, fr);
-    // qDebug() << "Frame tamam. Time: " << counter;
+
+    if(currentHoverTarget == counter ) frameLabel->setPixmap(QPixmap::fromImage(fr));
+
     counter += 5000;
 
-    if(counter < ghostPlayer->duration())
+    if (counter >= ghostPlayer->duration() - 4998){
+        counter = 0;
+        qDebug() << "Başa dönüldü.";
+    }
+
+    qint64 startSearch = counter;
+    bool isVideoFull = false;
+
+    while (frames.contains(counter) /*&& counter < ghostPlayer->duration()*/){
+        counter += 5000;
+        if (counter >= ghostPlayer->duration()) { //sondaysan yine başa geliyon
+            counter = 0;
+        }
+        if (counter == startSearch) { // taramaya başladığı yere geldi mi kontrol
+            isVideoFull = true;
+            break;
+        }
+    }
+    if (!isVideoFull) {
         QTimer::singleShot(0, this, [this](){
-            if(ghostPlayer) // Player hala yaşıyor mu kontrol et
+            if(ghostPlayer && !isPriorityFetching)
                 ghostPlayer->setPosition(counter);
         });
+    }
     else{
         qDebug() << "Hepsi tamam.";
+
         disconnect(ghostSink, &QVideoSink::videoFrameChanged, this, &MainWindow::takeFrame);
         ghostPlayer->stop();
         ghostPlayer->deleteLater();
@@ -242,15 +285,21 @@ void MainWindow::movePreviewWidget(int x, int seconds){
     timeLabel->raise();
 
     int targetMs = (seconds / 5) * 5000;
+    currentHoverTarget = targetMs;
+
     if (frames.contains(targetMs)) {
         frameLabel->setPixmap(QPixmap::fromImage(frames[targetMs]));
-        frameLabel->show();
     }
     else{
         QPixmap black(160, 90);
         black.fill(Qt::black);
         frameLabel->setPixmap(black);
+        if (!isPriorityFetching && ghostPlayer) {
+            isPriorityFetching = true;
+            ghostPlayer->setPosition(targetMs);
+        }
     }
+    frameLabel->show();
 
     QPoint sliderPos = ui->slider_videoBar->mapToGlobal(QPoint(0,0));
     int newX = sliderPos.x() + x - (previewContainer->width() / 2);

@@ -72,8 +72,10 @@ private:
 
     QMediaPlayer* ghostPlayer = nullptr;
     QVideoSink* ghostSink = nullptr;
-    QMap<int, QImage> frames;
+    QMap<qint64, QImage> frames;
     int counter = 0;
+    int tempCounter = 0;
+    int currentHoverTarget = -1;
 
     QMediaPlayer* player;
     QAudioOutput* audioController;
@@ -81,6 +83,7 @@ private:
     qint64 mDuration;
     bool isPaused = false;
     bool isMuted = false;
+    bool isPriorityFetching = false; //flag for priority of hover
     bool isVideoSwitching = false; //flag for opening new video
 };
 #endif // MAINWINDOW_H
