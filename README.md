@@ -27,6 +27,7 @@ It's a basic video player that focuses on the **hover preview feature** (like Yo
 ## 🐛 Known Bugs
 - [x] **Frame Loading Conflict:** If a video is opened and its frames are still loading for the hover preview, and you immediately open a *new* video; the slider might display the **old video's frames** instead of the new ones, and the new frames may fail to load.
 - [x] **Canceling an opening progress:** When a video is open, if you follow the *File -> Open* path and press cancel or close tab without opening new video, rest frames are not being loaded.
+- [x] **Loading is Finished Even It is Not:** If you make load the last part of video, program goes to beginning automatically. But after this if you make load just before of the previous time, it assumes loading is finished.
 
 ## 📝 To-Do (Planned Changes)
 ### Design
@@ -35,5 +36,5 @@ It's a basic video player that focuses on the **hover preview feature** (like Yo
 
 ### Features
 - [x] Add `Ctrl + O` shortcut to open files.
-- [ ] If unloaded frame is hovered, load automatically when it is loaded.
-- [ ] Give priority to hovered time. Do not wait loading all video to see the end of video. 
+- [x] If unloaded frame is hovered, load automatically when it is loaded.
+- [x] Give priority to hovered time. Do not wait loading all video to see the end of video. 
