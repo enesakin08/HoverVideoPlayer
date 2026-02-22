@@ -144,7 +144,22 @@ void MainWindow::StoreFrames(QString file){
 
 void MainWindow::takeFrame(const QVideoFrame &frame){
     if (sender() != ghostSink) return;
-    if(!frame.isValid() || isVideoSwitching) return;
+    if(isVideoSwitching) return;
+    if(!frame.isValid()) {
+        qDebug() << "bozuk kare yakalandı. Saniye:" << counter / 1000 << "atlandı";
+
+        if (isPriorityFetching) {
+            isPriorityFetching = false;
+        } else {
+            counter += 5000;
+        }
+
+        QTimer::singleShot(0, this, [this](){
+            if(ghostPlayer && !isVideoSwitching)
+                ghostPlayer->setPosition(counter);
+        });
+        return;
+    }
 
     QImage fr = frame.toImage().scaled(160, 90, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 
@@ -153,6 +168,7 @@ void MainWindow::takeFrame(const QVideoFrame &frame){
         qint64 key = (currentPos / 5000) * 5000;
 
         frames.insert(key, fr);
+        //qDebug() << "[VIP] Mouse atlaması yüklendi -> Saniye:" << key / 1000; // TEST SATIRI BİTİNCE KALDIR
 
         if(currentHoverTarget == key || abs(currentHoverTarget - key) < 2000){
             frameLabel->setPixmap(QPixmap::fromImage(fr));
@@ -165,6 +181,8 @@ void MainWindow::takeFrame(const QVideoFrame &frame){
     }
 
     frames.insert(counter, fr);
+
+    //qDebug() << "[Arka Plan] Sıralı yüklendi -> Saniye:" << counter / 1000; // TEST SATIRI BİTİNCE KALDIR
 
     if(currentHoverTarget == counter ) frameLabel->setPixmap(QPixmap::fromImage(fr));
 
